@@ -5,7 +5,7 @@
 TRACE_QUEUE = True
 TRACE_MUTEX = True
 TRACE_BINARY_SEMAPHORE = False
-TRACE_INTERRUPT = False
+TRACE_INTERRUPT = True
 
 log = open('log', 'r')
 lines = log.readlines()
@@ -35,9 +35,16 @@ for line in lines :
 	elif inst == 'switch' :
 		out_task, in_task, tick, tick_reload, out_minitick, in_minitick = args.split(' ')
 		
-		out_time = (int(tick) + (int(tick_reload) - int(out_minitick)) / int(tick_reload)) / 100 * 1000;
-		in_time  = (int(tick) + (int(tick_reload) - int(in_minitick))  / int(tick_reload)) / 100 * 1000;
-		
+		out_time = (float(tick) + (float(tick_reload) - float(out_minitick)) / float(tick_reload)) / 100 * 1000;
+		in_time  = (float(tick) + (float(tick_reload) - float(in_minitick))  / float(tick_reload)) / 100 * 1000;
+		switch_time=in_time-out_time;
+
+		event = {}
+		event['type'] = 'switch'
+		event['time'] = switch_time
+		events.append(event);
+
+
 		event = {}
 		event['type'] = 'task out'
 		event['task'] = out_task
@@ -50,6 +57,8 @@ for line in lines :
 		event['task'] = in_task
 		event['time'] = in_time
 		events.append(event);
+
+		
 
 		last_task = in_task
 
@@ -163,7 +172,7 @@ for line in lines :
 log.close()
 
 grasp = open('sched.grasp', 'w')
-
+context_switch = open('contextswitch', 'w')
 for id in tasks :
 	task = tasks[id]
 	grasp.write('newTask task%s -priority %s %s -name "%s"\n' % (id, task['priority'], '-kind isr' if int(id) < 256 else '', task['name']))
@@ -197,7 +206,11 @@ for event in events :
 	elif event['type'] == 'task in' :
 		grasp.write('plot %f jobResumed job%s.1\n' %
 					(event['time'], event['task']))
-
+	elif event['type'] == 'switch' :
+		grasp.write('plot %f switchtime -target  %f.1\n ' %
+					(event['time'],event['time']))
+		context_switch.write('context switch time is %f\n ' %
+					(event['time']))
 	elif event['type'] == 'mutex give' :
 		grasp.write('plot %f jobReleasedMutex job%s.1 mutex%s\n' % (event['time'], event['task'], event['target']));
 
@@ -244,3 +257,4 @@ for id in tasks :
 					(events[-1]['time'], id))
 
 grasp.close()
+context_switch.close()
